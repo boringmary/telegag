@@ -30,7 +30,7 @@ CAPTION = """
 
 def callback_minute(context):
 
-    s = list(reddit.subreddit("aww").top(time_filter="day", limit=10))
+    s = list(reddit.subreddit("aww").top(time_filter="day", limit=1))
     for x in s:
         print(CAPTION.format(title=x.title, likes=x.ups, coms=x.num_comments))
         if getattr(x, "media"):
@@ -50,7 +50,7 @@ def callback_minute(context):
             )
 
 
-def remove_job_if_exists(name, context):
+def remove_jobs_if_exists(name, context):
     current_jobs = context.job_queue.get_jobs_by_name(name)
     if not current_jobs:
         return False
@@ -59,7 +59,7 @@ def remove_job_if_exists(name, context):
     return True
 
 
-def set_timer(update, context):
+def subscribe(update, context):
     chat_id = update.message.from_user.id
     try:
         due = int(context.args[0])
@@ -67,7 +67,7 @@ def set_timer(update, context):
             update.message.reply_text('Sorry we can not go back to future!')
             return
 
-        context.job_queue.run_repeating(callback_minute, context=chat_id, interval=due * 30, first=10)
+        context.job_queue.run_repeating(callback_minute, name=str(chat_id), context=chat_id, interval=due, first=10)
 
         text = 'Timer successfully set!'
         update.message.reply_text(text)
@@ -76,9 +76,9 @@ def set_timer(update, context):
         update.message.reply_text('Usage: /set <seconds>')
 
 
-def unset(update, context):
+def unsubscribe(update, context):
     chat_id = update.message.from_user.id
-    job_removed = remove_job_if_exists(str(chat_id), context)
+    job_removed = remove_jobs_if_exists(str(chat_id), context)
     text = 'Timer successfully cancelled!' if job_removed else 'You have no active timer.'
     update.message.reply_text(text)
 
@@ -87,8 +87,8 @@ def main():
     updater = Updater(CF['TOKEN'], use_context=True)
     dispatcher = updater.dispatcher
 
-    dispatcher.add_handler(CommandHandler("set", set_timer))
-    dispatcher.add_handler(CommandHandler("unset", unset))
+    dispatcher.add_handler(CommandHandler("set", subscribe))
+    dispatcher.add_handler(CommandHandler("unset", unsubscribe))
 
     updater.start_polling()
 
