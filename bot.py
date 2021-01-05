@@ -64,7 +64,7 @@ def subscribe(update, context):
     try:
         due = int(context.args[0])
         if due < 0:
-            update.message.reply_text('Sorry we can not go back to future!')
+            update.message.reply_text('Please set correct date')
             return
 
         context.job_queue.run_repeating(callback_minute, name=str(chat_id), context=chat_id, interval=due, first=10)
@@ -73,13 +73,13 @@ def subscribe(update, context):
         update.message.reply_text(text)
 
     except (IndexError, ValueError):
-        update.message.reply_text('Usage: /set <seconds>')
+        update.message.reply_text('Please use command: /set <seconds>')
 
 
 def unsubscribe(update, context):
     chat_id = update.message.from_user.id
     job_removed = remove_jobs_if_exists(str(chat_id), context)
-    text = 'Timer successfully cancelled!' if job_removed else 'You have no active timer.'
+    text = 'You are successfully unsubscribed!' if job_removed else 'You have no active subscriptions.'
     update.message.reply_text(text)
 
 
