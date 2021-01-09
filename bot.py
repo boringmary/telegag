@@ -11,9 +11,11 @@ from pathlib import Path
 
 from telegram.ext import Updater
 from telegram.constants import PARSEMODE_MARKDOWN_V2
-from telegram.ext import CommandHandler, MessageHandler, Filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from helpers import load_yaml
+from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+
+from helpers import load_yaml, catch_error, ChannelNotFoundError
 from logger import create_logger
 
 
@@ -94,7 +96,7 @@ class Bot(object):
             job.schedule_removal()
         return True
 
-    def subscribe_on_job(self, update, context):
+    def subscribe_on_job(self, update, context, channel):
         '''
         '''
         chat_id = update.message.from_user.id
@@ -128,14 +130,18 @@ class Bot(object):
         def __repr__(self):
             return f"<{type(self).__name__} {self.name!r}>"
 
+    def get_popular_subreddits(self):
+        '''Get list of popular subreddits
+        '''
+        return list(self.reddit.subreddits.popular())
+
     def send_reddit_post(self, context):
         '''
         '''
         s = list(self.reddit.subreddit("aww").top(time_filter="day", limit=1))
         for x in s:
             if getattr(x, "media"):
-                video = x.media.get('reddit_video') or
-                x.preview['reddit_video_preview']
+                video = x.media.get('reddit_video') or x.preview['reddit_video_preview']
 
                 context.bot.send_video(
                     chat_id=context.job.context,
@@ -159,12 +165,57 @@ class Bot(object):
                     parse_mode=PARSEMODE_MARKDOWN_V2
                 )
 
+    def get_channel_by_name(self, client, name):
+        '''Get instanse of the channel by its name
+        :param: client: client to search channel (reddit/9gag)
+        :param: name: channel name
+        '''
+        if isinstance(self.client, self.praw.Reddit):
+            channel = get_reddit_channel_by_name(name)
+        if not channel:
+            raise ChannelNotFoundError
+        return channel
+
+    def get_reddit_channel_by_name(self, name):
+        '''Validate channel name provided by user
+        :param: name: name of the channel
+        '''
+        sb = self.reddit.subreddits.search_by_name(name)
+        return sb
+
+    @catch_error
+    def menu_categories(self, update, context):
+        items = [x.display_name for x in self.get_popular_subreddits()]
+        update.message.reply_text(
+            "Choose the channel you want to subscribe",
+            reply_markup=self.get_main_menu_kb(items)
+        )
+
+    @catch_error
+    def get_main_menu(self, update, context):
+        query = update.callback_query
+        query.answer()
+        query.edit_message_text(
+            text="",
+            reply_markup=get_main_menu_kb()
+        )
+
+    @catch_error
+    def get_main_menu_kb(self, items):
+        '''Show menu
+        '''
+        keyboard = [[InlineKeyboardButton(x, callback_data='m1')] for x in items]
+        return InlineKeyboardMarkup(keyboard)
+
     def run(self):
         '''Run the application, register all bot handlers.
         '''
         updater = Updater(self.cfg['TOKEN'], use_context=True)
         dispatcher = updater.dispatcher
 
+
+        dispatcher.add_handler(CommandHandler("menu", self.menu_categories))
+        dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='main'))
         dispatcher.add_handler(CommandHandler("set", self.subscribe_on_job))
         dispatcher.add_handler(CommandHandler("unset", self.unsubscribe_from_job))
 
