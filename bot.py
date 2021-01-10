@@ -106,10 +106,12 @@ class Bot(object):
             if not due or due < 0:
                 raise IncorrectDareError
 
+            limit = int(context.args[2]) or 1
+
             context.job_queue.run_repeating(
                 self.send_reddit_post,
                 name=str(chat_id),
-                context={'chat_id': chat_id, 'channel': channel},
+                context={'chat_id': chat_id, 'channel': channel, 'limit': limit},
                 interval=due,
                 first=10
             )
@@ -135,31 +137,43 @@ class Bot(object):
         '''
         return list(self.reddit.subreddits.popular())
 
-    def send_reddit_post(self, context):
+    def show_posts(self, update, context):
         '''
         '''
-        channel = context.job.context['channel']
-        chat_id = context.job.context['chat_id']
-        s = list(channel.top(time_filter="day", limit=3))
-        print(s)
-        for x in s:
+        channel = self.get_channel(context)
+        chat_id = update.message.from_user.id
+        limit = context.args[1]
+        self.send_reddit_post(context, channel, chat_id, limit)
+
+
+    def send_reddit_post(self, context, channel=None, chat_id=None, limit=None):
+        '''
+        '''
+        channel = channel or context.job.context['channel']
+        chat_id = chat_id or context.job.context['chat_id']
+        limit = limit or context.job.context['limit']
+        s = list(channel.top(time_filter="day", limit=int(limit)))
+        for post in s:
+            self._send_reddit_post(context, post, chat_id)
+
+    def _send_reddit_post(self, context, post, chat_id):
             # pprint(x.__dict__)
-            if getattr(x, "media"):
-                video = x.media.get('reddit_video') or x.preview['reddit_video_preview']
+            if getattr(post, "media"):
+                video = post.media.get('reddit_video') or post.preview['reddit_video_preview']
                 context.bot.send_video(
                     chat_id=chat_id,
                     video=video['fallback_url'],
                     caption=self.caption.format(
-                        title=x.title,
-                        likes=x.ups,
-                        coms=x.num_comments
+                        title=post.title,
+                        likes=post.ups,
+                        coms=post.num_comments
                     ),
                     parse_mode=PARSEMODE_MARKDOWN_V2
                 )
-            elif getattr(x, "preview"):
+            elif getattr(post, "preview"):
                 context.bot.send_animation(
                     chat_id=chat_id,
-                    animation=x.preview['reddit_video_preview']['fallback_url'],
+                    animation=post.preview['reddit_video_preview']['fallback_url'],
                     # caption=self.caption.format(
                     #     title=x.title,
                     #     likes=x.ups,
@@ -170,11 +184,11 @@ class Bot(object):
             else:
                 context.bot.send_photo(
                     chat_id=chat_id,
-                    photo=x.url,
+                    photo=post.url,
                     caption=self.caption.format(
-                        title=x.title,
-                        likes=x.ups,
-                        coms=x.num_comments
+                        title=post.title,
+                        likes=post.ups,
+                        coms=post.num_comments
                     ),
                     parse_mode=PARSEMODE_MARKDOWN_V2
                 )
@@ -197,14 +211,15 @@ class Bot(object):
             raise ChannelNotFoundError
         return channels[0]
 
-    @catch_error
-    def subscribe_on_reddit(self, update, context):
-        print(context.args)
+    def get_channel(self, context):
         raw_channel = context.args[0]
         if not raw_channel:
             raise IncorrectInputError
-        channel = self.get_reddit_channel_by_name(raw_channel)
-        print(channel)
+        return self.get_reddit_channel_by_name(raw_channel)
+
+    @catch_error
+    def subscribe_on_reddit(self, update, context):
+        channel = get_channel(context)
         self.subscribe_on_reddit_channel(update, context, channel)
 
     @catch_error
@@ -240,6 +255,7 @@ class Bot(object):
 
         dispatcher.add_handler(CommandHandler("menu", self.menu_categories))
         dispatcher.add_handler(CommandHandler("sub", self.subscribe_on_reddit))
+        dispatcher.add_handler(CommandHandler("show", self.show_posts))
         dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='main'))
 
         updater.start_polling()
