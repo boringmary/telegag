@@ -6,6 +6,7 @@
 import os
 import praw
 import yaml
+from pprint import pprint
 from pathlib import Path
 
 
@@ -15,7 +16,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackQueryHandler
 
-from helpers import load_yaml, catch_error, ChannelNotFoundError
+from helpers import load_yaml, catch_error, ChannelNotFoundError, IncorrectDareError, IncorrectInputError
 from logger import create_logger
 
 
@@ -96,20 +97,19 @@ class Bot(object):
             job.schedule_removal()
         return True
 
-    def subscribe_on_job(self, update, context, channel):
+    def subscribe_on_reddit_channel(self, update, context, channel):
         '''
         '''
         chat_id = update.message.from_user.id
         try:
-            due = int(context.args[0])
-            if due < 0:
-                update.message.reply_text('Please set correct date')
-                return
+            due = int(context.args[1])
+            if not due or due < 0:
+                raise IncorrectDareError
 
             context.job_queue.run_repeating(
                 self.send_reddit_post,
                 name=str(chat_id),
-                context=chat_id,
+                context={'chat_id': chat_id, 'channel': channel},
                 interval=due,
                 first=10
             )
@@ -138,13 +138,16 @@ class Bot(object):
     def send_reddit_post(self, context):
         '''
         '''
-        s = list(self.reddit.subreddit("aww").top(time_filter="day", limit=1))
+        channel = context.job.context['channel']
+        chat_id = context.job.context['chat_id']
+        s = list(channel.top(time_filter="day", limit=3))
+        print(s)
         for x in s:
+            # pprint(x.__dict__)
             if getattr(x, "media"):
                 video = x.media.get('reddit_video') or x.preview['reddit_video_preview']
-
                 context.bot.send_video(
-                    chat_id=context.job.context,
+                    chat_id=chat_id,
                     video=video['fallback_url'],
                     caption=self.caption.format(
                         title=x.title,
@@ -153,9 +156,20 @@ class Bot(object):
                     ),
                     parse_mode=PARSEMODE_MARKDOWN_V2
                 )
+            elif getattr(x, "preview"):
+                context.bot.send_animation(
+                    chat_id=chat_id,
+                    animation=x.preview['reddit_video_preview']['fallback_url'],
+                    # caption=self.caption.format(
+                    #     title=x.title,
+                    #     likes=x.ups,
+                    #     coms=x.num_comments
+                    # ),
+                    # parse_mode=PARSEMODE_MARKDOWN_V2
+                )
             else:
                 context.bot.send_photo(
-                    chat_id=context.job.context,
+                    chat_id=chat_id,
                     photo=x.url,
                     caption=self.caption.format(
                         title=x.title,
@@ -172,16 +186,26 @@ class Bot(object):
         '''
         if isinstance(self.client, self.praw.Reddit):
             channel = get_reddit_channel_by_name(name)
-        if not channel:
-            raise ChannelNotFoundError
         return channel
 
     def get_reddit_channel_by_name(self, name):
         '''Validate channel name provided by user
         :param: name: name of the channel
         '''
-        sb = self.reddit.subreddits.search_by_name(name)
-        return sb
+        channels = self.reddit.subreddits.search_by_name(name)
+        if not channels:
+            raise ChannelNotFoundError
+        return channels[0]
+
+    @catch_error
+    def subscribe_on_reddit(self, update, context):
+        print(context.args)
+        raw_channel = context.args[0]
+        if not raw_channel:
+            raise IncorrectInputError
+        channel = self.get_reddit_channel_by_name(raw_channel)
+        print(channel)
+        self.subscribe_on_reddit_channel(update, context, channel)
 
     @catch_error
     def menu_categories(self, update, context):
@@ -215,9 +239,8 @@ class Bot(object):
 
 
         dispatcher.add_handler(CommandHandler("menu", self.menu_categories))
+        dispatcher.add_handler(CommandHandler("sub", self.subscribe_on_reddit))
         dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='main'))
-        dispatcher.add_handler(CommandHandler("set", self.subscribe_on_job))
-        dispatcher.add_handler(CommandHandler("unset", self.unsubscribe_from_job))
 
         updater.start_polling()
 

@@ -8,10 +8,23 @@ except ImportError:
 from functools import wraps
 
 
-class ChannelNotFoundError(telegram.Exception):
+class ChannelNotFoundError(Exception):
     """docstring for FileNotFoundError"""
     def __init__(self):
         super().__init__("Channel with this name hasn't been found, please try another one.")
+
+
+class IncorrectDareError(Exception):
+    """docstring for FileNotFoundError"""
+    def __init__(self):
+        super().__init__("Please set a correct date.")
+
+
+class IncorrectInputError(Exception):
+    """docstring for FileNotFoundError"""
+    def __init__(self):
+        super().__init__("Please set a correct channel and date.")
+
 
 
 def load_yaml(filepath):
