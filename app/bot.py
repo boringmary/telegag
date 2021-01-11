@@ -16,8 +16,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackQueryHandler
 
-from helpers import load_yaml, catch_error, ChannelNotFoundError, IncorrectDareError, IncorrectInputError
-from logger import create_logger
+from app.helpers import load_yaml, catch_error, ChannelNotFoundError, IncorrectDareError, IncorrectInputError
+from app.logger import create_logger
 
 
 class Bot(object):
@@ -65,14 +65,14 @@ class Bot(object):
         '''Init all bot's API clients
         Like reddit and (!TODO)9gag
         '''
-        self.init_reddit_client()
+        self.reddit = self.init_reddit_client()
 
     def init_reddit_client(self):
         '''Init reddit client with credentials provided by
         config_file. client_secret is remains blank because of
         the back capability of reddit API.
         '''
-        self.reddit = praw.Reddit(
+        return praw.Reddit(
             client_id=self.cfg['REDDIT_CLIENT_ID'],
             client_secret="",
             password=self.cfg['REDDIT_USERNAME'],
@@ -90,16 +90,6 @@ class Bot(object):
         '''Handle exception happening in the bot
         '''
         pass
-
-    def remove_jobs_if_exists(name, context):
-        '''
-        '''
-        current_jobs = context.job_queue.get_jobs_by_name(name)
-        if not current_jobs:
-            return False
-        for job in current_jobs:
-            job.schedule_removal()
-        return True
 
     def subscribe_on_reddit_channel(self, update, context, channel):
         '''
