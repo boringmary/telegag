@@ -1,11 +1,13 @@
 import yaml
-import telegram
+from functools import wraps
+from typing import Dict, Callable, Type
+
 try:
     from yaml import CLoader as Loader
 except ImportError:
     from yaml import Loader
 
-from functools import wraps
+from telegram import Update
 
 
 class ChannelNotFoundError(Exception):
@@ -26,8 +28,7 @@ class IncorrectInputError(Exception):
         super().__init__("Please set a correct channel and date.")
 
 
-
-def load_yaml(filepath):
+def load_yaml(filepath: str) -> Dict:
     '''Load yaml file and return python dictionary.
     :param: filepath: full path of the file
     '''
@@ -44,11 +45,10 @@ def load_yaml(filepath):
 
 def catch_error(f):
     @wraps(f)
-    def wrap(self, bot, update):
+    def wrap(self, bot, update: Type[Update]) -> Callable:
         try:
             return f(self, bot, update)
         except ChannelNotFoundError as e:
             bot.send_message(chat_id=update.message.chat_id,
                              text=e.message)
-
     return wrap
