@@ -39,3 +39,13 @@ pip3 install -r requirements.txt
 ```
 python3 bot.py
 ```
+
+### Testing
+To run unit tests just execute:
+```
+pytest --cov=app tests/
+```
+It will run all tests in tests directory. To generate a html report (it will be in `./htmlcov/index.html`), run:
+```
+pytest --cov=app --cov-report html tests/
+```
