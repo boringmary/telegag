@@ -1,4 +1,5 @@
 import logging
+from typing import Type
 
 default_handler = logging.StreamHandler()
 default_handler.setFormatter(
@@ -6,7 +7,7 @@ default_handler.setFormatter(
 )
 
 
-def create_logger(name, debug_level):
+def create_logger(name, debug_level: str) -> Type[logging.Logger]:
     '''Create app logger.
     :param: name: name of the app to be logged
     :param: debug_level: python standard level of debug(DEBUG, INFO...)

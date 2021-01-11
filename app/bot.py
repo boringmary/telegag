@@ -10,14 +10,25 @@ import logging
 from typing import Dict, Type, List
 from pprint import pprint
 from pathlib import Path
-import telegram
-from telegram.ext import Updater
+
+
+from telegram.ext import (
+    CommandHandler,
+    MessageHandler,
+    Filters,
+    CallbackQueryHandler,
+    Updater
+)
 from telegram.constants import PARSEMODE_MARKDOWN_V2
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 
-from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackQueryHandler
-
-from app.helpers import load_yaml, catch_error, ChannelNotFoundError, IncorrectDareError, IncorrectInputError
+from app.helpers import (
+    load_yaml,
+    catch_error,
+    ChannelNotFoundError,
+    IncorrectDareError,
+    IncorrectInputError
+)
 from app.logger import create_logger
 
 TYPE_CHECKING = True
@@ -99,7 +110,7 @@ class Bot(object):
 
     def subscribe_on_reddit_channel(
         self,
-        update: Type[telegram.Update],
+        update: Type[Update],
         context: Type[CallbackContext],
         channel: Type[praw.models.Subreddit]
     ) -> None:
@@ -130,7 +141,7 @@ class Bot(object):
 
     def unsubscribe_from_job(
         self,
-        update: Type[telegram.Update],
+        update: Type[Update],
         context: Type[CallbackContext],
     ) -> None:
         '''
@@ -147,7 +158,7 @@ class Bot(object):
 
     def show_posts(
         self,
-        update: Type[telegram.Update],
+        update: Type[Update],
         context: Type[CallbackContext]
     ) -> None:
         '''
@@ -245,7 +256,7 @@ class Bot(object):
     @catch_error
     def subscribe_on_reddit(
         self,
-        update: Type[telegram.Update],
+        update: Type[Update],
         context: Type[CallbackContext]
     ) -> None:
         channel = get_channel(context)
@@ -254,7 +265,7 @@ class Bot(object):
     @catch_error
     def menu_categories(
         self,
-        update: Type[telegram.Update],
+        update: Type[Update],
         context: Type[CallbackContext]
     ) -> None:
         items = [x.display_name for x in self.get_popular_subreddits()]
@@ -266,7 +277,7 @@ class Bot(object):
     @catch_error
     def get_main_menu(
         self,
-        update: Type[telegram.Update],
+        update: Type[Update],
         context: Type[CallbackContext]
     ) -> None:
         query = update.callback_query
