@@ -7,9 +7,9 @@ import os
 import praw
 import yaml
 import logging
-from typing import Dict, Type, List
 from pprint import pprint
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 
 from telegram.ext import (
@@ -24,7 +24,6 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 
 from app.helpers import (
     load_yaml,
-    catch_error,
     ChannelNotFoundError,
     IncorrectDareError,
     IncorrectInputError
@@ -49,11 +48,20 @@ class Bot(object):
 
     token: str = "1426129428:AAHzbIpophVpFNUWPSziKc4u1SjikYW6qzE"
 
-    caption: str = """
+    caption: str = '''
     *{likes}* likes, *{coms}* comments
-    """
+    '''
     # [original post]({url})
     # *{title}*
+
+    help_command_md: str = "/*_{command}_* \- {description}"
+
+    commands_md: Tuple = (
+        ("help", "show help"),
+        ("show", "show latest n posts for a channel\. Usage: `show aww 3` will show 3 latest @aww posts"),
+        ("menu", "show available categories"),
+        ("sub", "subscribe to the channel\. Usage: `sub aww 30 1` will subscribe you to @aww, showing 1 post every 30 seconds")
+    )
 
     def __init__(
         self,
@@ -65,6 +73,21 @@ class Bot(object):
         self.logger = self.get_logger(self.cfg['LOG_LEVEL'])
         self.token = token
         self.init_clients()
+
+    @property
+    def name(self):
+        '''Returns name of the bot
+        '''
+        return cls.app_name
+
+    @property
+    def help_md(self):
+        '''Returns help message
+        '''
+        return "\n".join([self.help_command_md.format(
+            command=x[0],
+            description=x[1]
+        ) for x in self.commands_md])
 
     def get_config(self, filename: str) -> Dict:
         '''Load app configuration from provided filename
@@ -84,7 +107,7 @@ class Bot(object):
         '''
         self.reddit = self.init_reddit_client()
 
-    def init_reddit_client(self) -> Type[praw.Reddit]:
+    def init_reddit_client(self) -> praw.Reddit:
         '''Init reddit client with credentials provided by
         config_file. client_secret is remains blank because of
         the back capability of reddit API.
@@ -97,7 +120,7 @@ class Bot(object):
             username=self.cfg['REDDIT_PASSWORD']
         )
 
-    def get_logger(self, log_level: str) -> Type[logging.Logger]:
+    def get_logger(self, log_level: str) -> logging.Logger:
         '''Get app logger (standard python logging.Logger)
         :param: log_level: config parameter of logging level (DEBUG, INFO...)
         '''
@@ -110,9 +133,9 @@ class Bot(object):
 
     def subscribe_on_reddit_channel(
         self,
-        update: Type[Update],
-        context: Type[CallbackContext],
-        channel: Type[praw.models.Subreddit]
+        update: Update,
+        context: CallbackContext,
+        channel: praw.models.Subreddit
     ) -> None:
         '''
         '''
@@ -141,8 +164,8 @@ class Bot(object):
 
     def unsubscribe_from_job(
         self,
-        update: Type[Update],
-        context: Type[CallbackContext],
+        update: Update,
+        context: CallbackContext,
     ) -> None:
         '''
         '''
@@ -158,11 +181,12 @@ class Bot(object):
 
     def show_posts(
         self,
-        update: Type[Update],
-        context: Type[CallbackContext]
+        update: Update,
+        context: CallbackContext
     ) -> None:
         '''
         '''
+        ChannelNotFoundError(update)
         channel = self.get_channel(context)
         chat_id = update.message.from_user.id
         limit = context.args[1]
@@ -170,7 +194,7 @@ class Bot(object):
 
     def send_reddit_post(
         self,
-        context: Type[CallbackContext],
+        context: CallbackContext,
         channel: str = None,
         chat_id: int = None,
         limit: int = None
@@ -186,8 +210,8 @@ class Bot(object):
 
     def _send_reddit_post(
         self,
-        context: Type[CallbackContext],
-        post: Type[praw.models.Submission],
+        context: CallbackContext,
+        post: praw.models.Submission,
         chat_id: int
     ) -> None:
         '''
@@ -238,35 +262,49 @@ class Bot(object):
     #         channel = get_reddit_channel_by_name(name)
     #     return channel
 
-    def get_reddit_channel_by_name(self, name: str) -> Type[praw.reddit.Subreddit]:
+    def get_reddit_channel_by_name(self, name: str) -> praw.reddit.Subreddit:
         '''Validate channel name provided by user
         :param: name: name of the channel
         '''
         channels = self.reddit.subreddits.search_by_name(name)
         if not channels:
-            raise ChannelNotFoundError
+            ChannelNotFoundError()
         return channels[0]
 
-    def get_channel(self, context: Type[CallbackContext]) -> List[Type[praw.reddit.Subreddit]]:
+    def get_channel(self, context: CallbackContext) -> List[praw.reddit.Subreddit]:
         raw_channel = context.args[0]
         if not raw_channel:
             raise IncorrectInputError
         return self.get_reddit_channel_by_name(raw_channel)
 
-    @catch_error
+    def show_help(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> None:
+        text = self.help_md
+        update.message.reply_text(
+            text,
+            parse_mode=PARSEMODE_MARKDOWN_V2
+        )
+
     def subscribe_on_reddit(
         self,
-        update: Type[Update],
-        context: Type[CallbackContext]
+        update: Update,
+        context: CallbackContext
     ) -> None:
-        channel = get_channel(context)
+        '''
+        '''
+        if not context.args:
+            IncorrectInputError(context, update)
+            return
+        channel = self.get_channel(context)
         self.subscribe_on_reddit_channel(update, context, channel)
 
-    @catch_error
     def menu_categories(
         self,
-        update: Type[Update],
-        context: Type[CallbackContext]
+        update: Update,
+        context: CallbackContext
     ) -> None:
         items = [x.display_name for x in self.get_popular_subreddits()]
         update.message.reply_text(
@@ -274,11 +312,10 @@ class Bot(object):
             reply_markup=self.get_main_menu_kb(items)
         )
 
-    @catch_error
     def get_main_menu(
         self,
-        update: Type[Update],
-        context: Type[CallbackContext]
+        update: Update,
+        context: CallbackContext
     ) -> None:
         query = update.callback_query
         query.answer()
@@ -287,8 +324,7 @@ class Bot(object):
             reply_markup=get_main_menu_kb()
         )
 
-    @catch_error
-    def get_main_menu_kb(self, items: List[str]) -> Type[InlineKeyboardMarkup]:
+    def get_main_menu_kb(self, items: List[str]) -> InlineKeyboardMarkup:
         '''Show menu
         '''
         keyboard = [[InlineKeyboardButton(x, callback_data='m1')] for x in items]
@@ -302,6 +338,7 @@ class Bot(object):
 
 
         dispatcher.add_handler(CommandHandler("menu", self.menu_categories))
+        dispatcher.add_handler(CommandHandler("help", self.show_help))
         dispatcher.add_handler(CommandHandler("sub", self.subscribe_on_reddit))
         dispatcher.add_handler(CommandHandler("show", self.show_posts))
         dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='main'))

@@ -10,22 +10,33 @@ except ImportError:
 from telegram import Update
 
 
-class ChannelNotFoundError(Exception):
+class TelegramUserError(object):
     """docstring for FileNotFoundError"""
-    def __init__(self):
-        super().__init__("Channel with this name hasn't been found, please try another one.")
+    def __init__(self, update, message):
+        update.message.reply_text(
+            message
+        )
 
 
-class IncorrectDareError(Exception):
+class ChannelNotFoundError(TelegramUserError):
     """docstring for FileNotFoundError"""
-    def __init__(self):
-        super().__init__("Please set a correct date.")
+    def __init__(self, update):
+        message = "Incorrect channel name"
+        super().__init__(update, message)
 
 
-class IncorrectInputError(Exception):
+class IncorrectDareError(TelegramUserError):
     """docstring for FileNotFoundError"""
-    def __init__(self):
-        super().__init__("Please set a correct channel and date.")
+    def __call__(self, update):
+        message = "Incorrect date"
+        super().__init__(update, message)
+
+
+class IncorrectInputError(TelegramUserError):
+    """docstring for FileNotFoundError"""
+    def __init__(self, update):
+        message = "Incorrect usage of the command. Please see /help"
+        super().__init__(update, message)
 
 
 def load_yaml(filepath: str) -> Dict:
@@ -41,14 +52,3 @@ def load_yaml(filepath: str) -> Dict:
     except yaml.YAMLError as exc:
         # TODO implement yaml error handling
         raise
-
-
-def catch_error(f):
-    @wraps(f)
-    def wrap(self, bot, update: Type[Update]) -> Callable:
-        try:
-            return f(self, bot, update)
-        except ChannelNotFoundError as e:
-            bot.send_message(chat_id=update.message.chat_id,
-                             text=e.message)
-    return wrap

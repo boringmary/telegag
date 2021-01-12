@@ -2,7 +2,7 @@
 
 1. Set up the config file with `telegram`, `aws` and `reddit` credentials. Create files with the following parameters (telegram credentials faq: https://core.telegram.org/bots#creating-a-new-bot, reddit: https://www.reddit.com/prefs/apps/):
 
-/config.yaml
+app/config.yaml
 ```
 LOG_LEVEL: DEBUG
 TELEGRAM_TOKEN: "dummy"
@@ -12,7 +12,7 @@ REDDIT_PASSWORD: "dummy"
 
 ```
 
-/credentials
+app/credentials
 ```
 [default]
 aws_access_key_id = YOUR_ACCESS_KEY

@@ -10,6 +10,11 @@ CFG_MOCK = {
     'REDDIT_PASSWORD': "dummy",
 }
 
+HELP_MSG = '''/*_help_* \- show help
+/*_show_* \- show latest n posts for a channel\. Usage: `show aww 3` will show 3 latest @aww posts
+/*_menu_* \- show available categories
+/*_sub_* \- subscribe to the channel\. Usage: `sub aww 30 1` will subscribe you to @aww, showing 1 post every 30 seconds'''
+
 
 @pytest.mark.parametrize("input,expected", [
     ("INFO", logging.INFO),
@@ -67,3 +72,7 @@ def test_init_reddit_client(bot, monkeypatch):
     res = {"created": True}
     monkeypatch.setattr("praw.Reddit", mock)
     assert bot.init_reddit_client() == res
+
+
+def test_get_help_messagee(bot):
+    assert bot.help_md == HELP_MSG

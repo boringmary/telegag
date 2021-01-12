@@ -7,7 +7,7 @@ default_handler.setFormatter(
 )
 
 
-def create_logger(name, debug_level: str) -> Type[logging.Logger]:
+def create_logger(name, debug_level: str) -> logging.Logger:
     '''Create app logger.
     :param: name: name of the app to be logged
     :param: debug_level: python standard level of debug(DEBUG, INFO...)
