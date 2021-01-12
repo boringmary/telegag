@@ -117,7 +117,7 @@ class Bot(object):
     @applog
     def init_reddit_client(self) -> praw.Reddit:
         '''Init reddit client with credentials provided by
-        config_file. client_secret is remains blank because of
+        config_file. client_secret remains blank because of
         the back capability of reddit API.
         '''
         return praw.Reddit(
@@ -304,6 +304,10 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> None:
+        '''Help message handler.
+        :param: update: telegram.Update object
+        :param: context: telegram.models.Context object
+        '''
         text = self.help_md
         update.message.reply_text(
             text,
@@ -316,7 +320,9 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> None:
-        '''
+        '''Subscriotion on channel handler.
+        :param: update: telegram.Update object
+        :param: context: telegram.models.Context object
         '''
         if not context.args:
             IncorrectInputError(context, update)
@@ -330,6 +336,10 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> None:
+        '''Categories handler.
+        :param: update: telegram.Update object
+        :param: context: telegram.models.Context object
+        '''
         items = [x.display_name for x in self.get_popular_subreddits()]
         update.message.reply_text(
             "Choose the channel you want to subscribe",
@@ -342,6 +352,10 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> None:
+        '''Main menu handler.
+        :param: update: telegram.Update object
+        :param: context: telegram.models.Context object
+        '''
         query = update.callback_query
         query.answer()
         query.edit_message_text(
