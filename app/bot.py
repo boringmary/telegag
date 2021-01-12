@@ -135,7 +135,10 @@ class Bot(object):
         context: CallbackContext,
         channel: praw.models.Subreddit
     ) -> None:
-        '''
+        '''Subscriobe to reddit channel.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        :param: channel: subreddit (praw.models.Subreddit)
         '''
         chat_id = update.message.from_user.id
         try:
@@ -170,7 +173,9 @@ class Bot(object):
         update: Update,
         context: CallbackContext,
     ) -> None:
-        '''
+        '''Unsubscribe handler.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
         '''
         chat_id = update.message.from_user.id
         job_removed = remove_jobs_if_exists(str(chat_id), context)
@@ -188,7 +193,9 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> None:
-        '''
+        '''Show handler.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
         '''
         channel = self.get_channel(context)
         chat_id = update.message.from_user.id
@@ -199,11 +206,15 @@ class Bot(object):
     def send_reddit_post(
         self,
         context: CallbackContext,
-        channel: str = None,
+        channel: praw.reddit.Subreddit = None,
         chat_id: int = None,
         limit: int = None
     ) -> None:
-        '''
+        '''Send reddit submissions to the specific chat(user). 
+        :param: context: telegram.ext.CallbackContext object
+        :param: channel: (praw.reddit.Subreddit object)
+        :param: post: reddit submission (praw.models.Reddit)
+        :chat_id: chat_id to send a post
         '''
         channel = channel or context.job.context['channel']
         chat_id = chat_id or context.job.context['chat_id']
@@ -219,7 +230,10 @@ class Bot(object):
         post: praw.models.Submission,
         chat_id: int
     ) -> None:
-        '''
+        '''Send reddit submission to the specific chat(user). 
+        :param: context: telegram.ext.CallbackContext object
+        :param: post: reddit submission (praw.models.Reddit)
+        :chat_id: chat_id to send a post
         '''
         self.log.debug(f"Sending post {post.id} to chat_id {chat_id}")
 
@@ -293,6 +307,9 @@ class Bot(object):
 
     @applog
     def get_channel(self, context: CallbackContext) -> List[praw.reddit.Subreddit]:
+        '''Get reddit channel from user input
+        :param: context: telegram.ext.CallbackContext object
+        '''
         raw_channel = context.args[0]
         if not raw_channel:
             raise IncorrectInputError
@@ -306,7 +323,7 @@ class Bot(object):
     ) -> None:
         '''Help message handler.
         :param: update: telegram.Update object
-        :param: context: telegram.models.Context object
+        :param: context: telegram.ext.CallbackContext object
         '''
         text = self.help_md
         update.message.reply_text(
@@ -322,7 +339,7 @@ class Bot(object):
     ) -> None:
         '''Subscriotion on channel handler.
         :param: update: telegram.Update object
-        :param: context: telegram.models.Context object
+        :param: context: telegram.ext.CallbackContext object
         '''
         if not context.args:
             IncorrectInputError(context, update)
@@ -338,7 +355,7 @@ class Bot(object):
     ) -> None:
         '''Categories handler.
         :param: update: telegram.Update object
-        :param: context: telegram.models.Context object
+        :param: context: telegram.ext.CallbackContext object
         '''
         items = [x.display_name for x in self.get_popular_subreddits()]
         update.message.reply_text(
@@ -354,7 +371,7 @@ class Bot(object):
     ) -> None:
         '''Main menu handler.
         :param: update: telegram.Update object
-        :param: context: telegram.models.Context object
+        :param: context: telegram.ext.CallbackContext object
         '''
         query = update.callback_query
         query.answer()
