@@ -1,5 +1,6 @@
 import logging
 from typing import Type
+from functools import wraps
 
 default_handler = logging.StreamHandler()
 default_handler.setFormatter(
@@ -18,3 +19,13 @@ def create_logger(name, debug_level: str) -> logging.Logger:
     logger.addHandler(default_handler)
 
     return logger
+
+
+def applog(func):
+    @wraps(func)
+    def wrap(self, *args, **kwargs):
+        self.log.info(f"Starting {func.__name__} with parameters: args - {args}, kwargs = {kwargs}")
+        rse = func(self, *args, **kwargs)
+        self.log.info(f"Finishing {func.__name__}")
+        return rse
+    return wrap

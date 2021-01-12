@@ -28,7 +28,7 @@ from app.helpers import (
     IncorrectDareError,
     IncorrectInputError
 )
-from app.logger import create_logger
+from app.logger import create_logger, applog
 
 TYPE_CHECKING = True
 
@@ -69,8 +69,9 @@ class Bot(object):
         credentials_file: str = default_credentials_filename,
         token: str = token
     ) -> None:
+
         self.cfg = self.get_config(config_file)
-        self.logger = self.get_logger(self.cfg['LOG_LEVEL'])
+        self.log = self.get_logger(self.cfg['LOG_LEVEL'])
         self.token = token
         self.init_clients()
 
@@ -94,19 +95,26 @@ class Bot(object):
         :param: filename: filename of the config file
         '''
         filename = (Path(__file__).parent).joinpath(filename)
-
         try:
             return load_yaml(filename)
         except OSError as e:
             e.strerror = f"Unable to load configuration file ({e.strerror})"
             raise
 
+    def get_logger(self, log_level: str) -> logging.Logger:
+        '''Get app logger (standard python logging.Logger)
+        :param: log_level: config parameter of logging level (DEBUG, INFO...)
+        '''
+        return create_logger(self.app_name, log_level)
+
+    @applog
     def init_clients(self) -> None:
         '''Init all bot's API clients
         Like reddit and (!TODO)9gag
         '''
         self.reddit = self.init_reddit_client()
 
+    @applog
     def init_reddit_client(self) -> praw.Reddit:
         '''Init reddit client with credentials provided by
         config_file. client_secret is remains blank because of
@@ -120,17 +128,7 @@ class Bot(object):
             username=self.cfg['REDDIT_PASSWORD']
         )
 
-    def get_logger(self, log_level: str) -> logging.Logger:
-        '''Get app logger (standard python logging.Logger)
-        :param: log_level: config parameter of logging level (DEBUG, INFO...)
-        '''
-        return create_logger(self.app_name, log_level)
-
-    def handle_exception(self):
-        '''Handle exception happening in the bot
-        '''
-        pass
-
+    @applog
     def subscribe_on_reddit_channel(
         self,
         update: Update,
@@ -143,25 +141,30 @@ class Bot(object):
         try:
             due = int(context.args[1])
             if not due or due < 0:
+                self.log.debug(f"Incorrect date set: {due}")
                 raise IncorrectDareError
 
             limit = int(context.args[2]) or 1
 
+            job = self.send_reddit_post
+
+            self.log.info(f"Registering job {job} for chat_id {chat_id}, interval {interval}, limit {limit}")
             context.job_queue.run_repeating(
-                self.send_reddit_post,
+                job,
                 name=str(chat_id),
                 context={'chat_id': chat_id, 'channel': channel, 'limit': limit},
                 interval=due,
                 first=10
             )
+            self.log.info("Job registered")
 
-            text = 'Timer successfully set!'
-            update.message.reply_text(text)
+            update.message.reply_text('Timer successfully set!')
 
-        except (IndexError, ValueError):
-            raise
+        except (IndexError, ValueError) as e:
+            self.log.error(f"An error occured {e.message}")
             update.message.reply_text('Please use command: /set <seconds>')
 
+    @applog
     def unsubscribe_from_job(
         self,
         update: Update,
@@ -179,6 +182,7 @@ class Bot(object):
         '''
         return list(self.reddit.subreddits.popular())
 
+    @applog
     def show_posts(
         self,
         update: Update,
@@ -186,12 +190,12 @@ class Bot(object):
     ) -> None:
         '''
         '''
-        ChannelNotFoundError(update)
         channel = self.get_channel(context)
         chat_id = update.message.from_user.id
         limit = context.args[1]
         self.send_reddit_post(context, channel, chat_id, limit)
 
+    @applog
     def send_reddit_post(
         self,
         context: CallbackContext,
@@ -208,6 +212,7 @@ class Bot(object):
         for post in s:
             self._send_reddit_post(context, post, chat_id)
 
+    @applog
     def _send_reddit_post(
         self,
         context: CallbackContext,
@@ -216,9 +221,12 @@ class Bot(object):
     ) -> None:
         '''
         '''
-        # pprint(x.__dict__)
+        self.log.debug(f"Sending post {post.id} to chat_id {chat_id}")
+
         if getattr(post, "media"):
             video = post.media.get('reddit_video') or post.preview['reddit_video_preview']
+
+            self.log.debug(f"Starting video {video['fallback_url']} stream")
             context.bot.send_video(
                 chat_id=chat_id,
                 video=video['fallback_url'],
@@ -229,18 +237,27 @@ class Bot(object):
                 ),
                 parse_mode=PARSEMODE_MARKDOWN_V2
             )
+            self.log.debug("Video sent")
+
         elif getattr(post, "preview"):
+            anim_url = post.preview['reddit_video_preview']['fallback_url']
+            self.log.debug(f"Starting animation {anim_url} stream")
+
             context.bot.send_animation(
                 chat_id=chat_id,
-                animation=post.preview['reddit_video_preview']['fallback_url'],
-                # caption=self.caption.format(
-                #     title=x.title,
-                #     likes=x.ups,
-                #     coms=x.num_comments
-                # ),
-                # parse_mode=PARSEMODE_MARKDOWN_V2
+                animation=anim_url,
+                caption=self.caption.format(
+                    title=x.title,
+                    likes=x.ups,
+                    coms=x.num_comments
+                ),
+                parse_mode=PARSEMODE_MARKDOWN_V2
             )
+            self.log.debug("Animation sent")
+
         else:
+            self.log.debug(f"Starting photo {post.url} stream")
+
             context.bot.send_photo(
                 chat_id=chat_id,
                 photo=post.url,
@@ -252,6 +269,8 @@ class Bot(object):
                 parse_mode=PARSEMODE_MARKDOWN_V2
             )
 
+            self.log.debug("Photo sent")
+
     # TODO: define generic type for all clients (like reddit, 9gag etc.s)
     # def get_channel_by_name(self, client: Type[self.praw.Reddit], name: str) -> Type[praw.reddit.Subreddit]:
     #     '''Get instanse of the channel by its name
@@ -262,6 +281,7 @@ class Bot(object):
     #         channel = get_reddit_channel_by_name(name)
     #     return channel
 
+    @applog
     def get_reddit_channel_by_name(self, name: str) -> praw.reddit.Subreddit:
         '''Validate channel name provided by user
         :param: name: name of the channel
@@ -271,12 +291,14 @@ class Bot(object):
             ChannelNotFoundError()
         return channels[0]
 
+    @applog
     def get_channel(self, context: CallbackContext) -> List[praw.reddit.Subreddit]:
         raw_channel = context.args[0]
         if not raw_channel:
             raise IncorrectInputError
         return self.get_reddit_channel_by_name(raw_channel)
 
+    @applog
     def show_help(
         self,
         update: Update,
@@ -288,6 +310,7 @@ class Bot(object):
             parse_mode=PARSEMODE_MARKDOWN_V2
         )
 
+    @applog
     def subscribe_on_reddit(
         self,
         update: Update,
@@ -301,6 +324,7 @@ class Bot(object):
         channel = self.get_channel(context)
         self.subscribe_on_reddit_channel(update, context, channel)
 
+    @applog
     def menu_categories(
         self,
         update: Update,
@@ -312,6 +336,7 @@ class Bot(object):
             reply_markup=self.get_main_menu_kb(items)
         )
 
+    @applog
     def get_main_menu(
         self,
         update: Update,
@@ -324,6 +349,7 @@ class Bot(object):
             reply_markup=get_main_menu_kb()
         )
 
+    @applog
     def get_main_menu_kb(self, items: List[str]) -> InlineKeyboardMarkup:
         '''Show menu
         '''
@@ -333,16 +359,20 @@ class Bot(object):
     def run(self):
         '''Run the application, register all bot handlers.
         '''
+        self.log.info("Starting updater")
         updater = Updater(self.token, use_context=True)
+
+        self.log.info("Starting dispatcher")
         dispatcher = updater.dispatcher
 
-
+        self.log.info("Registering handlers")
         dispatcher.add_handler(CommandHandler("menu", self.menu_categories))
         dispatcher.add_handler(CommandHandler("help", self.show_help))
         dispatcher.add_handler(CommandHandler("sub", self.subscribe_on_reddit))
         dispatcher.add_handler(CommandHandler("show", self.show_posts))
         dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='main'))
 
+        self.log.info("Starting polling")
         updater.start_polling()
 
         updater.idle()
