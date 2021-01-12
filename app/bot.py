@@ -46,8 +46,6 @@ class Bot(object):
     default_credentials_filename: str = "credentials"
     app_name: str = 'telegag_bot'
 
-    token: str = "1426129428:AAHzbIpophVpFNUWPSziKc4u1SjikYW6qzE"
-
     caption: str = '''
     *{likes}* likes, *{coms}* comments
     '''
@@ -56,23 +54,26 @@ class Bot(object):
 
     help_command_md: str = "/*_{command}_* \- {description}"
 
-    commands_md: Tuple = (
-        ("help", "show help"),
-        ("show", "show latest n posts for a channel\. Usage: `show aww 3` will show 3 latest @aww posts"),
-        ("menu", "show available categories"),
-        ("sub", "subscribe to the channel\. Usage: `sub aww 30 1` will subscribe you to @aww, showing 1 post every 30 seconds")
-    )
+    commands_md: Dict = {
+        "help": "To show help use /help",
+        "show": "To show latest n posts for a channel use `/show aww 3`, it will show 3 latest @aww posts",
+        "menu": "To show available menu options use /menu",
+        "sub": "To subscribe to the channel use `/sub aww 30 1`, it will subscribe you to @aww, showing 1 post every 30 seconds",
+    }
+
+    main_menu_options = [
+        ("subscribe manually", "sub_manually"),
+        ("use helper", "sub_helper")
+    ]
 
     def __init__(
         self,
         config_file: str = default_config_filename,
         credentials_file: str = default_credentials_filename,
-        token: str = token
     ) -> None:
 
         self.cfg = self.get_config(config_file)
         self.log = self.get_logger(self.cfg['LOG_LEVEL'])
-        self.token = token
         self.init_clients()
 
     @property
@@ -213,8 +214,8 @@ class Bot(object):
         '''Send reddit submissions to the specific chat(user). 
         :param: context: telegram.ext.CallbackContext object
         :param: channel: (praw.reddit.Subreddit object)
-        :param: post: reddit submission (praw.models.Reddit)
         :chat_id: chat_id to send a post
+        :limit: number of posts to show
         '''
         channel = channel or context.job.context['channel']
         chat_id = chat_id or context.job.context['chat_id']
@@ -232,7 +233,7 @@ class Bot(object):
     ) -> None:
         '''Send reddit submission to the specific chat(user). 
         :param: context: telegram.ext.CallbackContext object
-        :param: post: reddit submission (praw.models.Reddit)
+        :param: post: reddit submission (praw.models.Submissions)
         :chat_id: chat_id to send a post
         '''
         self.log.debug(f"Sending post {post.id} to chat_id {chat_id}")
@@ -360,7 +361,7 @@ class Bot(object):
         items = [x.display_name for x in self.get_popular_subreddits()]
         update.message.reply_text(
             "Choose the channel you want to subscribe",
-            reply_markup=self.get_main_menu_kb(items)
+            reply_markup=self.get_main_menu_kb()
         )
 
     @applog
@@ -381,17 +382,89 @@ class Bot(object):
         )
 
     @applog
-    def get_main_menu_kb(self, items: List[str]) -> InlineKeyboardMarkup:
-        '''Show menu
+    def get_choose_menu(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> None:
+        '''Main menu handler.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
         '''
-        keyboard = [[InlineKeyboardButton(x, callback_data='m1')] for x in items]
+        query = update.callback_query
+        query.answer()
+        query.edit_message_text(
+            text="",
+            reply_markup=get_main_menu_kb()
+        )
+
+    @applog
+    def get_main_menu_kb(self) -> InlineKeyboardMarkup:
+        '''Make main menu keyboard
+        '''
+        keyboard = [[InlineKeyboardButton(x[0], callback_data=x[1])]
+            for x in self.main_menu_options]
         return InlineKeyboardMarkup(keyboard)
+
+    @applog
+    def sub_manually(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> None:
+        '''Callback instructions to subscribe manually to the channel.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        '''
+        text = self.commands_md.get("sub")
+        query = update.callback_query
+        query.answer()
+        query.edit_message_text(
+            text=text,
+            parse_mode=PARSEMODE_MARKDOWN_V2
+        )
+
+    @applog
+    def sub_helper(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> None:
+        '''Callback instructions to use subscription helper.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        '''
+        text = "Firstly, write subreddit you want to subscribe"
+        query = update.callback_query
+        query.answer()
+        query.edit_message_text(
+            text=text,
+            parse_mode=PARSEMODE_MARKDOWN_V2
+        )
+
+    # @applog
+    # def set_sub_time(
+    #     self,
+    #     update: Update,
+    #     context: CallbackContext
+    # ) -> None:
+    #     '''Callback instructions to use subscription helper.
+    #     :param: update: telegram.Update object
+    #     :param: context: telegram.ext.CallbackContext object
+    #     '''
+    #     text = self.commands_md.get("sub")
+    #     query = update.callback_query
+    #     query.answer()
+    #     query.edit_message_text(
+    #         text=text,
+    #         parse_mode=PARSEMODE_MARKDOWN_V2
+    #     )
 
     def run(self):
         '''Run the application, register all bot handlers.
         '''
         self.log.info("Starting updater")
-        updater = Updater(self.token, use_context=True)
+        updater = Updater(self.cfg['TOKEN'] , use_context=True)
 
         self.log.info("Starting dispatcher")
         dispatcher = updater.dispatcher
@@ -401,7 +474,12 @@ class Bot(object):
         dispatcher.add_handler(CommandHandler("help", self.show_help))
         dispatcher.add_handler(CommandHandler("sub", self.subscribe_on_reddit))
         dispatcher.add_handler(CommandHandler("show", self.show_posts))
+
         dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='main'))
+        dispatcher.add_handler(CallbackQueryHandler(self.sub_manually, pattern='sub_manually'))
+        dispatcher.add_handler(CallbackQueryHandler(self.sub_helper, pattern='ch_by_list'))
+        # dispatcher.add_handler(CallbackQueryHandler(self.set_sub_time, pattern='set_time'))
+        # dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='set_frequency'))
 
         self.log.info("Starting polling")
         updater.start_polling()
