@@ -470,17 +470,20 @@ class Bot(object):
     #         parse_mode=PARSEMODE_MARKDOWN_V2
     #     )
 
-
     def start(self, update: Update, context: CallbackContext) -> int:
-        
+
         update.message.reply_text(
             'subreddit?',
         )
 
         return self.SUBREDDIT
 
-
-    def subreddit_helper(self, update: Update, context: CallbackContext) -> int:
+    @applog
+    def subreddit_helper(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> int:
         text = update.message.text
         context.user_data['1'] = text
         user = update.message.from_user
@@ -488,7 +491,12 @@ class Bot(object):
 
         return self.LIMIT
 
-    def limit_helper(self, update: Update, context: CallbackContext) -> int:
+    @applog
+    def limit_helper(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> int:
         text = update.message.text
         context.user_data['2'] = text
         user = update.message.from_user
@@ -496,7 +504,12 @@ class Bot(object):
 
         return self.TIMERANGE
 
-    def timerange_helper(self, update: Update, context: CallbackContext) -> int:
+    @applog
+    def timerange_helper(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> int:
         user = update.message.from_user
         text = update.message.text
         context.user_data['3'] = text
@@ -504,12 +517,17 @@ class Bot(object):
 
         return ConversationHandler.END
 
-
-    def cancel(self, update: Update, context: CallbackContext) -> int:
+    @applog
+    def cancel(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> int:
         user = update.message.from_user
         logger.info("User %s canceled the conversation.", user.first_name)
         update.message.reply_text(
-            'Bye! I hope we can talk again some day.', reply_markup=ReplyKeyboardRemove()
+            'Bye! I hope we can talk again some day.',
+            reply_markup=ReplyKeyboardRemove()
         )
 
         return ConversationHandler.END
