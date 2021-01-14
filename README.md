@@ -1,4 +1,4 @@
-#### Telegram bot which allows you to subscribe to channels you like and get daily updates (actually whatewer time range you want)
+#### Telegram bot which allows you to subscribe to channels you like and get daily updates (actually whatever time range you want)
 
 !Attentions: Currently still in development.
 
