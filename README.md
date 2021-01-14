@@ -1,3 +1,7 @@
+####Telegram bot which allows you to subscribe to channels you like and get daily updates (actually whatewer time range you want)
+
+!Attentions: Currently still in development.
+
 ### Installation
 
 1. Set up the config file with `telegram`, `aws` and `reddit` credentials. Create files with the following parameters (telegram credentials faq: https://core.telegram.org/bots#creating-a-new-bot, reddit: https://www.reddit.com/prefs/apps/):

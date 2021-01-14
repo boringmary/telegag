@@ -17,10 +17,11 @@ from telegram.ext import (
     MessageHandler,
     Filters,
     CallbackQueryHandler,
-    Updater
+    Updater,
+    ConversationHandler
 )
 from telegram.constants import PARSEMODE_MARKDOWN_V2
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ReplyKeyboardMarkup
 
 from app.helpers import (
     load_yaml,
@@ -65,6 +66,15 @@ class Bot(object):
         ("subscribe manually", "sub_manually"),
         ("use helper", "sub_helper")
     ]
+
+    SUBREDDIT, LIMIT, TIMERANGE = range(3)
+
+    helper_keyboard = [
+        ['Subreddit', 'Favourite colour'],
+        ['Number of posts to send', 'Something else...'],
+        ['Time range'],
+    ]
+    markup = ReplyKeyboardMarkup(helper_keyboard, one_time_keyboard=True)
 
     def __init__(
         self,
@@ -460,6 +470,50 @@ class Bot(object):
     #         parse_mode=PARSEMODE_MARKDOWN_V2
     #     )
 
+
+    def start(self, update: Update, context: CallbackContext) -> int:
+        
+        update.message.reply_text(
+            'subreddit?',
+        )
+
+        return self.SUBREDDIT
+
+
+    def subreddit_helper(self, update: Update, context: CallbackContext) -> int:
+        text = update.message.text
+        context.user_data['1'] = text
+        user = update.message.from_user
+        update.message.reply_text('limit?.')
+
+        return self.LIMIT
+
+    def limit_helper(self, update: Update, context: CallbackContext) -> int:
+        text = update.message.text
+        context.user_data['2'] = text
+        user = update.message.from_user
+        update.message.reply_text('timerange?.')
+
+        return self.TIMERANGE
+
+    def timerange_helper(self, update: Update, context: CallbackContext) -> int:
+        user = update.message.from_user
+        text = update.message.text
+        context.user_data['3'] = text
+        update.message.reply_text(f'{context.user_data}.')
+
+        return ConversationHandler.END
+
+
+    def cancel(self, update: Update, context: CallbackContext) -> int:
+        user = update.message.from_user
+        logger.info("User %s canceled the conversation.", user.first_name)
+        update.message.reply_text(
+            'Bye! I hope we can talk again some day.', reply_markup=ReplyKeyboardRemove()
+        )
+
+        return ConversationHandler.END
+
     def run(self):
         '''Run the application, register all bot handlers.
         '''
@@ -481,6 +535,17 @@ class Bot(object):
         # dispatcher.add_handler(CallbackQueryHandler(self.set_sub_time, pattern='set_time'))
         # dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='set_frequency'))
 
+
+        conv_handler = ConversationHandler(
+            entry_points=[CommandHandler('start', self.start)],
+            states={
+                self.SUBREDDIT: [MessageHandler(Filters.text & ~Filters.command, self.subreddit_helper)],
+                self.LIMIT: [MessageHandler(Filters.text & ~Filters.command, self.limit_helper)],
+                self.TIMERANGE: [MessageHandler(Filters.text & ~Filters.command, self.timerange_helper)],
+            },
+            fallbacks=[CommandHandler('cancel', self.cancel)],
+        )
+        dispatcher.add_handler(conv_handler)
         self.log.info("Starting polling")
         updater.start_polling()
 
