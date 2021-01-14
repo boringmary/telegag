@@ -1,0 +1,2 @@
+- AWS S3 integration to store active sessions
+- Make timeranges more convinient to use (probably it can be a calendar?)
