@@ -153,9 +153,9 @@ class Bot(object):
         '''
         chat_id = update.message.from_user.id
         try:
-            due = int(context.args[1])
-            if not due or due < 0:
-                self.log.debug(f"Incorrect date set: {due}")
+            interval = int(context.args[1])
+            if not interval or interval < 0:
+                self.log.debug(f"Incorrect date set: {interval}")
                 raise IncorrectDareError
 
             limit = int(context.args[2]) or 1
@@ -167,7 +167,7 @@ class Bot(object):
                 job,
                 name=str(chat_id),
                 context={'chat_id': chat_id, 'channel': channel, 'limit': limit},
-                interval=due,
+                interval=interval,
                 first=10
             )
             self.log.info("Job registered")
