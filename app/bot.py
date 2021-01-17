@@ -69,13 +69,6 @@ class Bot(object):
 
     SUBREDDIT, LIMIT, TIMERANGE = range(3)
 
-    helper_keyboard = [
-        ['Subreddit', 'Favourite colour'],
-        ['Number of posts to send', 'Something else...'],
-        ['Time range'],
-    ]
-    markup = ReplyKeyboardMarkup(helper_keyboard, one_time_keyboard=True)
-
     def __init__(
         self,
         config_file: str = default_config_filename,
