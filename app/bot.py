@@ -544,7 +544,7 @@ class Bot(object):
         '''Run the application, register all bot handlers.
         '''
         self.log.info("Starting updater")
-        updater = Updater(self.cfg['TOKEN'] , use_context=True)
+        updater = Updater(self.cfg['TOKEN'], use_context=True)
 
         self.log.info("Starting dispatcher")
         dispatcher = updater.dispatcher
@@ -555,17 +555,28 @@ class Bot(object):
         dispatcher.add_handler(CommandHandler("sub", self.subscribe_on_reddit))
         dispatcher.add_handler(CommandHandler("show", self.show_posts))
 
-        dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='main'))
-        dispatcher.add_handler(CallbackQueryHandler(self.sub_manually, pattern='sub_manually'))
-        dispatcher.add_handler(CallbackQueryHandler(self.sub_helper, pattern='ch_by_list'))
-
+        dispatcher.add_handler(CallbackQueryHandler(
+            self.get_main_menu, pattern='main')
+        )
+        dispatcher.add_handler(CallbackQueryHandler(
+            self.sub_manually, pattern='sub_manually')
+        )
+        dispatcher.add_handler(CallbackQueryHandler(
+            self.sub_helper, pattern='ch_by_list')
+        )
 
         conv_handler = ConversationHandler(
             entry_points=[CommandHandler('start', self.start)],
             states={
-                self.SUBREDDIT: [MessageHandler(Filters.text & ~Filters.command, self.subreddit_helper)],
-                self.LIMIT: [MessageHandler(Filters.text & ~Filters.command, self.limit_helper)],
-                self.TIMERANGE: [MessageHandler(Filters.text & ~Filters.command, self.timerange_helper)],
+                self.SUBREDDIT: [MessageHandler(
+                    Filters.text & ~Filters.command, self.subreddit_helper
+                )],
+                self.LIMIT: [MessageHandler(
+                    Filters.text & ~Filters.command, self.limit_helper
+                )],
+                self.TIMERANGE: [MessageHandler(
+                    Filters.text & ~Filters.command, self.timerange_helper
+                )],
             },
             fallbacks=[CommandHandler('cancel', self.cancel)],
         )
