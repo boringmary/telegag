@@ -144,7 +144,9 @@ class Bot(object):
         self,
         update: Update,
         context: CallbackContext,
-        channel: praw.models.Subreddit
+        channel: praw.models.Subreddit,
+        limit: int = None,
+        interval: float = None
     ) -> None:
         '''Subscriobe to reddit channel.
         :param: update: telegram.Update object
@@ -153,12 +155,12 @@ class Bot(object):
         '''
         chat_id = update.message.from_user.id
         try:
-            interval = int(context.args[1])
+            interval = interval or int(context.args[1])
             if not interval or interval < 0:
                 self.log.debug(f"Incorrect date set: {interval}")
                 raise IncorrectDareError
 
-            limit = int(context.args[2]) or 1
+            limit = limit or int(context.args[2]) or 1
 
             job = self.send_reddit_post
 
@@ -318,7 +320,7 @@ class Bot(object):
 
     @applog
     def get_channel(self, context: CallbackContext) -> List[praw.reddit.Subreddit]:
-        '''Get reddit channel from user input
+        '''Get reddit channel from user input context
         :param: context: telegram.ext.CallbackContext object
         '''
         raw_channel = context.args[0]
@@ -452,28 +454,18 @@ class Bot(object):
             parse_mode=PARSEMODE_MARKDOWN_V2
         )
 
-    # @applog
-    # def set_sub_time(
-    #     self,
-    #     update: Update,
-    #     context: CallbackContext
-    # ) -> None:
-    #     '''Callback instructions to use subscription helper.
-    #     :param: update: telegram.Update object
-    #     :param: context: telegram.ext.CallbackContext object
-    #     '''
-    #     text = self.commands_md.get("sub")
-    #     query = update.callback_query
-    #     query.answer()
-    #     query.edit_message_text(
-    #         text=text,
-    #         parse_mode=PARSEMODE_MARKDOWN_V2
-    #     )
-
-    def start(self, update: Update, context: CallbackContext) -> int:
-
+    @applog
+    def start(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> int:
+        '''Starts subscription helper. Ask for channel name.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        '''
         update.message.reply_text(
-            'subreddit?',
+            'Type the name of the subreddit you want to subscribe',
         )
 
         return self.SUBREDDIT
@@ -484,10 +476,15 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> int:
+        '''Receives the name of the channel and asks for the numver of posts.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        '''
         text = update.message.text
-        context.user_data['1'] = text
+        channel = self.get_reddit_channel_by_name(text)
+        context.user_data['channel'] = channel
         user = update.message.from_user
-        update.message.reply_text('limit?.')
+        update.message.reply_text("How many posts you'd like to see?.")
 
         return self.LIMIT
 
@@ -497,10 +494,14 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> int:
+        '''Receives the number of posts to show. Asks for the timerange.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        '''
         text = update.message.text
-        context.user_data['2'] = text
+        context.user_data['limit'] = text
         user = update.message.from_user
-        update.message.reply_text('timerange?.')
+        update.message.reply_text('How often do you want to get a new posts?')
 
         return self.TIMERANGE
 
@@ -510,10 +511,21 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> int:
+        '''Receives the timerange and activate the subscription.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        '''
         user = update.message.from_user
         text = update.message.text
-        context.user_data['3'] = text
-        update.message.reply_text(f'{context.user_data}.')
+        context.user_data['timerange'] = text
+
+        self.subscribe_on_reddit_channel(
+            update,
+            context,
+            context.user_data['channel'],
+            int(context.user_data['limit']),
+            int(context.user_data['timerange'])
+        )
 
         return ConversationHandler.END
 
@@ -523,6 +535,10 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> int:
+        '''Receives the name of the channel and ask for the numver of posts.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        '''
         user = update.message.from_user
         logger.info("User %s canceled the conversation.", user.first_name)
         update.message.reply_text(
