@@ -5,15 +5,15 @@ from app.logger import create_logger
 # Dummy config (tests/config.yaml)
 CFG_MOCK = {
     'LOG_LEVEL': 'DEBUG',
+    'TOKEN': "dummy",
     'REDDIT_CLIENT_ID': "dummy",
     'REDDIT_USERNAME': "dummy",
     'REDDIT_PASSWORD': "dummy",
 }
 
-HELP_MSG = '''/*_help_* \- show help
-/*_show_* \- show latest n posts for a channel\. Usage: `show aww 3` will show 3 latest @aww posts
-/*_menu_* \- show available categories
-/*_sub_* \- subscribe to the channel\. Usage: `sub aww 30 1` will subscribe you to @aww, showing 1 post every 30 seconds'''
+HELP_MSG = '''/*_help_* \- To show help use /help
+/*_show_* \- To show latest n posts for a channel use `/show aww 3`, it will show 3 latest @aww posts
+/*_sub_* \- To subscribe to the channel use `/sub aww 30 1`, it will subscribe you to @aww, showing 1 post every 30 seconds'''
 
 
 @pytest.mark.parametrize("input,expected", [

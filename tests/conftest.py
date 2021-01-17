@@ -14,7 +14,7 @@ def bot(bot_info):
 
 
 def make_bot(bot_info, **kwargs):
-    return Bot(token=bot_info['token'], config_file="../tests/config.yaml")
+    return Bot(config_file="../tests/config.yaml")
 
 
 def get_bot():

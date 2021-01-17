@@ -58,7 +58,6 @@ class Bot(object):
     commands_md: Dict = {
         "help": "To show help use /help",
         "show": "To show latest n posts for a channel use `/show aww 3`, it will show 3 latest @aww posts",
-        "menu": "To show available menu options use /menu",
         "sub": "To subscribe to the channel use `/sub aww 30 1`, it will subscribe you to @aww, showing 1 post every 30 seconds",
     }
 
@@ -90,9 +89,9 @@ class Bot(object):
         '''Returns help message
         '''
         return "\n".join([self.help_command_md.format(
-            command=x[0],
-            description=x[1]
-        ) for x in self.commands_md])
+            command=x,
+            description=y
+        ) for x, y in self.commands_md.items()])
 
     def get_config(self, filename: str) -> Dict:
         '''Load app configuration from provided filename
