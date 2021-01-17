@@ -535,7 +535,7 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> int:
-        '''Receives the name of the channel and ask for the numver of posts.
+        '''Works when user cancel the helper input
         :param: update: telegram.Update object
         :param: context: telegram.ext.CallbackContext object
         '''
@@ -566,8 +566,6 @@ class Bot(object):
         dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='main'))
         dispatcher.add_handler(CallbackQueryHandler(self.sub_manually, pattern='sub_manually'))
         dispatcher.add_handler(CallbackQueryHandler(self.sub_helper, pattern='ch_by_list'))
-        # dispatcher.add_handler(CallbackQueryHandler(self.set_sub_time, pattern='set_time'))
-        # dispatcher.add_handler(CallbackQueryHandler(self.get_main_menu, pattern='set_frequency'))
 
 
         conv_handler = ConversationHandler(
@@ -580,6 +578,7 @@ class Bot(object):
             fallbacks=[CommandHandler('cancel', self.cancel)],
         )
         dispatcher.add_handler(conv_handler)
+
         self.log.info("Starting polling")
         updater.start_polling()
 
