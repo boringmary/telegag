@@ -59,11 +59,13 @@ class Bot(object):
         "help": "To show help use /help",
         "show": "To show latest n posts for a channel use `/show aww 3`, it will show 3 latest @aww posts",
         "sub": "To subscribe to the channel use `/sub aww 30 1`, it will subscribe you to @aww, showing 1 post every 30 seconds",
+        "menu": "Helpers menu"
     }
 
     main_menu_options = [
-        ("subscribe manually", "sub_manually"),
-        ("use helper", "sub_helper")
+        ("Subscription helper", "start"),
+        ("Subscribe to top channels", "sub_helper"),
+        ("Show manual", "show_help")
     ]
 
     SUBREDDIT, LIMIT, TIMERANGE = range(3)
@@ -74,9 +76,9 @@ class Bot(object):
         credentials_file: str = default_credentials_filename,
     ) -> None:
 
-        self.cfg = self.get_config(config_file)
-        self.log = self.get_logger(self.cfg['LOG_LEVEL'])
-        self.init_clients()
+        self.cfg = self._get_config(config_file)
+        self.log = self._get_logger(self.cfg['LOG_LEVEL'])
+        self._init_clients()
 
     @property
     def name(self):
@@ -93,7 +95,7 @@ class Bot(object):
             description=y
         ) for x, y in self.commands_md.items()])
 
-    def get_config(self, filename: str) -> Dict:
+    def _get_config(self, filename: str) -> Dict:
         '''Load app configuration from provided filename
         :param: filename: filename of the config file
         '''
@@ -104,21 +106,21 @@ class Bot(object):
             e.strerror = f"Unable to load configuration file ({e.strerror})"
             raise
 
-    def get_logger(self, log_level: str) -> logging.Logger:
+    def _get_logger(self, log_level: str) -> logging.Logger:
         '''Get app logger (standard python logging.Logger)
         :param: log_level: config parameter of logging level (DEBUG, INFO...)
         '''
         return create_logger(self.app_name, log_level)
 
     @applog
-    def init_clients(self) -> None:
+    def _init_clients(self) -> None:
         '''Init all bot's API clients
         Like reddit and (!TODO)9gag
         '''
-        self.reddit = self.init_reddit_client()
+        self.reddit = self._init_reddit_client()
 
     @applog
-    def init_reddit_client(self) -> praw.Reddit:
+    def _init_reddit_client(self) -> praw.Reddit:
         '''Init reddit client with credentials provided by
         config_file. client_secret remains blank because of
         the back capability of reddit API.
@@ -215,7 +217,7 @@ class Bot(object):
         chat_id: int = None,
         limit: int = None
     ) -> None:
-        '''Send reddit submissions to the specific chat(user). 
+        '''Send reddit submissions to the specific chat(user).
         :param: context: telegram.ext.CallbackContext object
         :param: channel: (praw.reddit.Subreddit object)
         :chat_id: chat_id to send a post
@@ -241,7 +243,7 @@ class Bot(object):
         :chat_id: chat_id to send a post
         '''
         self.log.debug(f"Sending post {post.id} to chat_id {chat_id}")
-
+        # pprint(post.__dict__)
         if getattr(post, "media"):
             video = post.media.get('reddit_video') or post.preview['reddit_video_preview']
 
@@ -259,36 +261,50 @@ class Bot(object):
             self.log.debug("Video sent")
 
         elif getattr(post, "preview"):
-            anim_url = post.preview['reddit_video_preview']['fallback_url']
-            self.log.debug(f"Starting animation {anim_url} stream")
+            if post.preview.get('reddit_video_preview'):
+                anim_url = post.preview['reddit_video_preview']['fallback_url']
+                self.log.debug(f"Starting animation {anim_url} stream")
 
-            context.bot.send_animation(
-                chat_id=chat_id,
-                animation=anim_url,
-                caption=self.caption.format(
-                    title=x.title,
-                    likes=x.ups,
-                    coms=x.num_comments
-                ),
-                parse_mode=PARSEMODE_MARKDOWN_V2
-            )
-            self.log.debug("Animation sent")
+                context.bot.send_animation(
+                    chat_id=chat_id,
+                    animation=anim_url,
+                    caption=self.caption.format(
+                        title=post.title,
+                        likes=post.ups,
+                        coms=post.num_comments
+                    ),
+                    parse_mode=PARSEMODE_MARKDOWN_V2
+                )
+                self.log.debug("Animation sent")
+
+            else:
+                self._send_img_to_chat(chat_id, context, post)
 
         else:
-            self.log.debug(f"Starting photo {post.url} stream")
+            self._send_img_to_chat(chat_id, context, post)
 
-            context.bot.send_photo(
-                chat_id=chat_id,
-                photo=post.url,
-                caption=self.caption.format(
-                    title=post.title,
-                    likes=post.ups,
-                    coms=post.num_comments
-                ),
-                parse_mode=PARSEMODE_MARKDOWN_V2
-            )
+    def _send_img_to_chat(
+        self,
+        chat_id: str,
+        context: CallbackContext,
+        post: praw.models.Submission
+    ) -> None:
+        '''Extract img from reddir object and
+        send to the given chat
+        '''
+        self.log.debug(f"Starting photo {post.url} stream")
+        context.bot.send_photo(
+            chat_id=chat_id,
+            photo=post.url,
+            caption=self.caption.format(
+                title=post.title,
+                likes=post.ups,
+                coms=post.num_comments
+            ),
+            parse_mode=PARSEMODE_MARKDOWN_V2
+        )
 
-            self.log.debug("Photo sent")
+        self.log.debug("Photo sent")
 
     # TODO: define generic type for all clients (like reddit, 9gag etc.s)
     # def get_channel_by_name(self, client: Type[self.praw.Reddit], name: str) -> Type[praw.reddit.Subreddit]:
@@ -353,12 +369,12 @@ class Bot(object):
         self.subscribe_on_reddit_channel(update, context, channel)
 
     @applog
-    def menu_categories(
+    def categories(
         self,
         update: Update,
         context: CallbackContext
     ) -> None:
-        '''Categories handler.
+        '''Main menu handler.
         :param: update: telegram.Update object
         :param: context: telegram.ext.CallbackContext object
         '''
@@ -370,23 +386,6 @@ class Bot(object):
 
     @applog
     def get_main_menu(
-        self,
-        update: Update,
-        context: CallbackContext
-    ) -> None:
-        '''Main menu handler.
-        :param: update: telegram.Update object
-        :param: context: telegram.ext.CallbackContext object
-        '''
-        query = update.callback_query
-        query.answer()
-        query.edit_message_text(
-            text="",
-            reply_markup=get_main_menu_kb()
-        )
-
-    @applog
-    def get_choose_menu(
         self,
         update: Update,
         context: CallbackContext
@@ -550,7 +549,7 @@ class Bot(object):
         dispatcher = updater.dispatcher
 
         self.log.info("Registering handlers")
-        dispatcher.add_handler(CommandHandler("menu", self.menu_categories))
+        dispatcher.add_handler(CommandHandler("menu", self.get_main_menu))
         dispatcher.add_handler(CommandHandler("help", self.show_help))
         dispatcher.add_handler(CommandHandler("sub", self.subscribe_on_reddit))
         dispatcher.add_handler(CommandHandler("show", self.show_posts))
@@ -564,6 +563,9 @@ class Bot(object):
         dispatcher.add_handler(CallbackQueryHandler(
             self.sub_helper, pattern='ch_by_list')
         )
+
+
+        
 
         conv_handler = ConversationHandler(
             entry_points=[CommandHandler('start', self.start)],

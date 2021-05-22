@@ -1,0 +1,20 @@
+2021-01-20 15:55:41.312 +07 [17882] LOG:  starting PostgreSQL 13.1 on x86_64-apple-darwin18.7.0, compiled by Apple clang version 11.0.0 (clang-1100.0.33.17), 64-bit
+2021-01-20 15:55:41.313 +07 [17882] LOG:  listening on IPv6 address "::1", port 5432
+2021-01-20 15:55:41.313 +07 [17882] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2021-01-20 15:55:41.313 +07 [17882] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2021-01-20 15:55:41.314 +07 [17882] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2021-01-20 15:55:41.318 +07 [17883] LOG:  database system was shut down at 2021-01-20 15:55:33 +07
+2021-01-20 15:55:41.323 +07 [17882] LOG:  database system is ready to accept connections
+2021-01-20 15:55:44.434 +07 [17896] FATAL:  database "co" does not exist
+2021-01-20 15:55:50.648 +07 [17901] FATAL:  role "root" does not exist
+2021-01-20 15:55:55.172 +07 [17907] FATAL:  role "ma" does not exist
+2021-01-20 15:55:58.146 +07 [17912] FATAL:  database "co" does not exist
+2021-01-20 15:56:32.333 +07 [17931] FATAL:  role "root" does not exist
+2021-01-20 15:56:35.152 +07 [17937] FATAL:  role "ma" does not exist
+2021-01-20 15:57:16.381 +07 [17943] ERROR:  syntax error at or near ")" at character 43
+2021-01-20 15:57:16.381 +07 [17943] STATEMENT:  create table t(a integer, b text,  boolean);
+2021-01-20 15:58:52.179 +07 [17943] ERROR:  column "random" does not exist at character 132
+2021-01-20 15:58:52.179 +07 [17943] STATEMENT:  insert into t(a,b,c)
+	select s.id, chr((32+random()*94)::integer), random() <= 0.01
+	from generate_series(1, 1000) as s(id)
+	order by(random);
