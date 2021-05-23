@@ -64,7 +64,7 @@ class Bot(object):
     commands_md: Dict = {
         "help": "To show the menu use /help",
         "show": "To show latest n posts for a channel use `/show aww 3`, it will show 3 latest @aww posts",
-        "sub": "To subscribe to the channel use `/sub aww 30 1`, it will subscribe you to @aww, showing 1 post every 30 seconds",
+        "sub": "To subscribe to the channel use `/sub aww 0.5 1`, it will subscribe you to @aww, showing 1 post every 30 minutes",
     }
 
     main_menu_options = [
@@ -78,6 +78,12 @@ class Bot(object):
 
     SUBREDDIT, LIMIT, TIMERANGE = range(3)
     TOP_LIMIT, TOP_TIMERANGE, TOP_FINISH = 4, 5, 6
+
+    questions = {
+        "channel": "Choose the channel ypu wanna subscribe on",
+        "limit": "How many posts do you wanna see \(per time range\)",
+        "timerange": 'How often do you want to see new posts \(in hours\)?',
+    }
 
     def __init__(
         self,
@@ -156,10 +162,13 @@ class Bot(object):
         :param: update: telegram.Update object
         :param: context: telegram.ext.CallbackContext object
         :param: channel: subreddit (praw.models.Subreddit)
+        :param: limit: number of posts to show,
+        :param: interval: interval in minutes,
+        :param: chat_id: chat_id
         '''
         chat_id = chat_id or update.message.from_user.id
         try:
-            interval = (interval or int(context.args[1])) * 60
+            interval = (interval or float(context.args[1]) * 60) * 60
             if not interval or interval < 0:
                 self.log.debug(f"Incorrect date set: {interval}")
                 raise IncorrectDareError
@@ -397,7 +406,7 @@ class Bot(object):
         query = update.callback_query
         query.answer()
         query.edit_message_text(
-            text="Choose tha channel ypu wanna subscribe on",
+            text="Choose the channel ypu wanna subscribe on",
             reply_markup=self._get_top_channels_kb(items)
         )
 
@@ -426,7 +435,7 @@ class Bot(object):
         context.user_data["channel"] = query.data
         query.answer()
         query.edit_message_text(
-            text="How many posts you want to see?",
+            text=self.questions["limit"],
             reply_markup=self._get_posts_limit_kb(),
             parse_mode=PARSEMODE_MARKDOWN_V2
         )
@@ -455,7 +464,7 @@ class Bot(object):
         context.user_data["limit"] = query.data
         query.answer()
         query.edit_message_text(
-            text="Choose the time range",
+            text=self.questions["timerange"],
             reply_markup=self.get_time_ranges_kb(),
             parse_mode=PARSEMODE_MARKDOWN_V2
         )
@@ -488,7 +497,7 @@ class Bot(object):
             update,
             context,
             channel,
-            int(context.user_data['limit']),
+            int(context.user_data['limit']) * 60,
             int(context.user_data['timerange']),
             chat_id=query.message.chat_id
         )
@@ -549,7 +558,7 @@ class Bot(object):
         query = update.callback_query
         query.answer()
         query.edit_message_text(
-            text='Type the name of the subreddit you want to subscribe',
+            text=self.questions["channel"],
         )
 
         return self.SUBREDDIT
@@ -568,7 +577,7 @@ class Bot(object):
         channel = self.get_reddit_channel_by_name(text)
         context.user_data['channel'] = channel
         user = update.message.from_user
-        update.message.reply_text("How many posts you'd like to see?.")
+        update.message.reply_text(self.questions["limit"])
 
         return self.LIMIT
 
@@ -585,7 +594,7 @@ class Bot(object):
         text = update.message.text
         context.user_data['limit'] = text
         user = update.message.from_user
-        update.message.reply_text('How often do you want to get a new posts?')
+        update.message.reply_text(self.questions["timerange"])
 
         return self.TIMERANGE
 
@@ -607,7 +616,7 @@ class Bot(object):
             update,
             context,
             context.user_data['channel'],
-            int(context.user_data['limit']),
+            int(context.user_data['limit'] * 60),
             int(context.user_data['timerange'])
         )
 
