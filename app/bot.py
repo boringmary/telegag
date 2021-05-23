@@ -62,16 +62,15 @@ class Bot(object):
     help_command_md: str = "/*_{command}_* \- {description}"
 
     commands_md: Dict = {
-        "help": "To show help use /help",
+        "help": "To show the menu use /help",
         "show": "To show latest n posts for a channel use `/show aww 3`, it will show 3 latest @aww posts",
         "sub": "To subscribe to the channel use `/sub aww 30 1`, it will subscribe you to @aww, showing 1 post every 30 seconds",
-        "menu": "Helpers menu"
     }
 
     main_menu_options = [
-        ("Subscription helper", "sub_helper"),
+        ("Run subscription helper", "sub_helper"),
         ("Subscribe to top channels", "categories"),
-        ("Show manual", "show_help")
+        ("See manual (for linux lovers)", "show_help")
     ]
 
     time_range_options = ["1", "4", "8", "12", "24"]
@@ -507,7 +506,7 @@ class Bot(object):
         :param: context: telegram.ext.CallbackContext object
         '''
         update.message.reply_text(
-            text="Choose the right option:",
+            text="What do you want to do?",
             reply_markup=self.get_main_menu_kb()
         )
 
@@ -547,26 +546,10 @@ class Bot(object):
         :param: update: telegram.Update object
         :param: context: telegram.ext.CallbackContext object
         '''
-        text = "Firstly, write subreddit you want to subscribe"
         query = update.callback_query
         query.answer()
         query.edit_message_text(
-            text=text,
-            parse_mode=PARSEMODE_MARKDOWN_V2
-        )
-
-    @applog
-    def start(
-        self,
-        update: Update,
-        context: CallbackContext
-    ) -> int:
-        '''Starts subscription helper. Asks for channel name.
-        :param: update: telegram.Update object
-        :param: context: telegram.ext.CallbackContext object
-        '''
-        update.message.reply_text(
-            'Type the name of the subreddit you want to subscribe',
+            text='Type the name of the subreddit you want to subscribe',
         )
 
         return self.SUBREDDIT
@@ -667,9 +650,6 @@ class Bot(object):
 
         self.log.info("Registering callbacks for menu items")
         dispatcher.add_handler(CallbackQueryHandler(
-            self.sub_helper, pattern='sub_helper')
-        )
-        dispatcher.add_handler(CallbackQueryHandler(
             self.show_help, pattern='show_help')
         )
 
@@ -691,7 +671,7 @@ class Bot(object):
         dispatcher.add_handler(topch_conv_handler)
 
         helper_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler('start', self.start)],
+            entry_points=[CallbackQueryHandler(self.sub_helper)],
             states={
                 self.SUBREDDIT: [MessageHandler(
                     Filters.text & ~Filters.command, self.subreddit_helper
