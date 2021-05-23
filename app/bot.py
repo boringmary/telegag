@@ -21,7 +21,13 @@ from telegram.ext import (
     ConversationHandler
 )
 from telegram.constants import PARSEMODE_MARKDOWN_V2
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ReplyKeyboardMarkup
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Update,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+)
 
 from app.helpers import (
     load_yaml,
@@ -63,12 +69,16 @@ class Bot(object):
     }
 
     main_menu_options = [
-        ("Subscription helper", "start"),
-        ("Subscribe to top channels", "sub_helper"),
+        ("Subscription helper", "sub_helper"),
+        ("Subscribe to top channels", "categories"),
         ("Show manual", "show_help")
     ]
 
+    time_range_options = ["1", "4", "8", "12", "24"]
+    posts_limit_options = ["1", "3", "5", "10"]
+
     SUBREDDIT, LIMIT, TIMERANGE = range(3)
+    TOP_LIMIT, TOP_TIMERANGE, TOP_FINISH = 4, 5, 6
 
     def __init__(
         self,
@@ -140,16 +150,17 @@ class Bot(object):
         context: CallbackContext,
         channel: praw.models.Subreddit,
         limit: int = None,
-        interval: float = None
+        interval: float = None,
+        chat_id: str = None
     ) -> None:
         '''Subscriobe to reddit channel.
         :param: update: telegram.Update object
         :param: context: telegram.ext.CallbackContext object
         :param: channel: subreddit (praw.models.Subreddit)
         '''
-        chat_id = update.message.from_user.id
+        chat_id = chat_id or update.message.from_user.id
         try:
-            interval = interval or int(context.args[1])
+            interval = (interval or int(context.args[1])) * 60
             if not interval or interval < 0:
                 self.log.debug(f"Incorrect date set: {interval}")
                 raise IncorrectDareError
@@ -168,11 +179,18 @@ class Bot(object):
             )
             self.log.info("Job registered")
 
-            update.message.reply_text('Timer successfully set!')
+            if update.message:
+                update.message.reply_text('Timer successfully set!')
+            else:
+                update.callback_query.edit_message_text('Timer successfully set!')
 
         except (IndexError, ValueError) as e:
             self.log.error(f"An error occured {e.message}")
-            update.message.reply_text('Please use command: /set <seconds>')
+
+            if update.message:
+                update.message.reply_text('Please use command: /set <seconds>')
+            else:
+                update.callback_query.edit_message_text('Please use command: /set <seconds>')
 
     @applog
     def unsubscribe_from_job(
@@ -306,16 +324,6 @@ class Bot(object):
 
         self.log.debug("Photo sent")
 
-    # TODO: define generic type for all clients (like reddit, 9gag etc.s)
-    # def get_channel_by_name(self, client: Type[self.praw.Reddit], name: str) -> Type[praw.reddit.Subreddit]:
-    #     '''Get instanse of the channel by its name
-    #     :param: client: client to search channel (reddit/9gag)
-    #     :param: name: channel name
-    #     '''
-    #     if isinstance(self.client, self.praw.Reddit):
-    #         channel = get_reddit_channel_by_name(name)
-    #     return channel
-
     @applog
     def get_reddit_channel_by_name(self, name: str) -> praw.reddit.Subreddit:
         '''Validate channel name provided by user
@@ -347,10 +355,18 @@ class Bot(object):
         :param: context: telegram.ext.CallbackContext object
         '''
         text = self.help_md
-        update.message.reply_text(
-            text,
-            parse_mode=PARSEMODE_MARKDOWN_V2
-        )
+        query = update.callback_query
+        if query:
+            query.answer()
+            query.edit_message_text(
+                text=text,
+                parse_mode=PARSEMODE_MARKDOWN_V2
+            )
+        else:
+            update.message.reply_text(
+                text="Choose the right option:",
+                reply_markup=self.get_main_menu_kb()
+            )
 
     @applog
     def subscribe_on_reddit(
@@ -358,7 +374,7 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> None:
-        '''Subscriotion on channel handler.
+        '''Subscriotion on the channel handler.
         :param: update: telegram.Update object
         :param: context: telegram.ext.CallbackContext object
         '''
@@ -369,20 +385,116 @@ class Bot(object):
         self.subscribe_on_reddit_channel(update, context, channel)
 
     @applog
-    def categories(
+    def top_channels_helper(
         self,
         update: Update,
         context: CallbackContext
-    ) -> None:
-        '''Main menu handler.
+    ) -> int:
+        '''Top channels helper.
         :param: update: telegram.Update object
         :param: context: telegram.ext.CallbackContext object
         '''
         items = [x.display_name for x in self.get_popular_subreddits()]
-        update.message.reply_text(
-            "Choose the channel you want to subscribe",
-            reply_markup=self.get_main_menu_kb()
+        query = update.callback_query
+        query.answer()
+        query.edit_message_text(
+            text="Choose tha channel ypu wanna subscribe on",
+            reply_markup=self._get_top_channels_kb(items)
         )
+
+        return self.TOP_LIMIT
+
+    @applog
+    def _get_top_channels_kb(self, chnls) -> InlineKeyboardMarkup:
+        '''Make main menu keyboard
+        :param: chnls: list of channels
+        '''
+        keyboard = [[InlineKeyboardButton(x, callback_data=x)]
+            for x in chnls]
+        return InlineKeyboardMarkup(keyboard)
+
+    @applog
+    def posts_number_callback(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> int:
+        '''Help message handler.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        '''
+        query = update.callback_query
+        context.user_data["channel"] = query.data
+        query.answer()
+        query.edit_message_text(
+            text="How many posts you want to see?",
+            reply_markup=self._get_posts_limit_kb(),
+            parse_mode=PARSEMODE_MARKDOWN_V2
+        )
+
+        return self.TOP_TIMERANGE
+
+    @applog
+    def _get_posts_limit_kb(self) -> InlineKeyboardMarkup:
+        '''Make main menu keyboard
+        '''
+        keyboard = [[InlineKeyboardButton(x, callback_data=x)]
+            for x in self.posts_limit_options]
+        return InlineKeyboardMarkup(keyboard)
+
+    @applog
+    def time_range_callback(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> int:
+        '''Help message handler.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        '''
+        query = update.callback_query
+        context.user_data["limit"] = query.data
+        query.answer()
+        query.edit_message_text(
+            text="Choose the time range",
+            reply_markup=self.get_time_ranges_kb(),
+            parse_mode=PARSEMODE_MARKDOWN_V2
+        )
+
+        return self.TOP_FINISH
+
+    @applog
+    def get_time_ranges_kb(self) -> InlineKeyboardMarkup:
+        '''Make main menu keyboard
+        '''
+        keyboard = [[InlineKeyboardButton(x, callback_data=x)]
+            for x in self.time_range_options]
+        return InlineKeyboardMarkup(keyboard)
+
+    @applog
+    def finish_topch_sub(
+        self,
+        update: Update,
+        context: CallbackContext
+    ) -> int:
+        '''Main menu handler.
+        :param: update: telegram.Update object
+        :param: context: telegram.ext.CallbackContext object
+        '''
+        query = update.callback_query
+        context.user_data["timerange"] = query.data
+        channel = self.get_reddit_channel_by_name(context.user_data["channel"])
+
+        self.subscribe_on_reddit_channel(
+            update,
+            context,
+            channel,
+            int(context.user_data['limit']),
+            int(context.user_data['timerange']),
+            chat_id=query.message.chat_id
+        )
+
+        return ConversationHandler.END
 
     @applog
     def get_main_menu(
@@ -394,11 +506,9 @@ class Bot(object):
         :param: update: telegram.Update object
         :param: context: telegram.ext.CallbackContext object
         '''
-        query = update.callback_query
-        query.answer()
-        query.edit_message_text(
-            text="",
-            reply_markup=get_main_menu_kb()
+        update.message.reply_text(
+            text="Choose the right option:",
+            reply_markup=self.get_main_menu_kb()
         )
 
     @applog
@@ -451,7 +561,7 @@ class Bot(object):
         update: Update,
         context: CallbackContext
     ) -> int:
-        '''Starts subscription helper. Ask for channel name.
+        '''Starts subscription helper. Asks for channel name.
         :param: update: telegram.Update object
         :param: context: telegram.ext.CallbackContext object
         '''
@@ -548,26 +658,39 @@ class Bot(object):
         self.log.info("Starting dispatcher")
         dispatcher = updater.dispatcher
 
-        self.log.info("Registering handlers")
+        self.log.info("Registering main handlers")
         dispatcher.add_handler(CommandHandler("menu", self.get_main_menu))
         dispatcher.add_handler(CommandHandler("help", self.show_help))
         dispatcher.add_handler(CommandHandler("sub", self.subscribe_on_reddit))
         dispatcher.add_handler(CommandHandler("show", self.show_posts))
 
+
+        self.log.info("Registering callbacks for menu items")
         dispatcher.add_handler(CallbackQueryHandler(
-            self.get_main_menu, pattern='main')
+            self.sub_helper, pattern='sub_helper')
         )
         dispatcher.add_handler(CallbackQueryHandler(
-            self.sub_manually, pattern='sub_manually')
-        )
-        dispatcher.add_handler(CallbackQueryHandler(
-            self.sub_helper, pattern='ch_by_list')
+            self.show_help, pattern='show_help')
         )
 
+        topch_conv_handler = ConversationHandler(
+            entry_points=[CallbackQueryHandler(self.top_channels_helper, pattern='categories')],
+            states={
+                self.TOP_LIMIT: [CallbackQueryHandler(
+                    self.posts_number_callback)
+                ],
+                self.TOP_TIMERANGE: [CallbackQueryHandler(
+                    self.time_range_callback)
+                ],
+                self.TOP_FINISH: [CallbackQueryHandler(
+                    self.finish_topch_sub)
+                ]
+            },
+            fallbacks=[CommandHandler('cancel', self.cancel)],
+        )
+        dispatcher.add_handler(topch_conv_handler)
 
-        
-
-        conv_handler = ConversationHandler(
+        helper_conv_handler = ConversationHandler(
             entry_points=[CommandHandler('start', self.start)],
             states={
                 self.SUBREDDIT: [MessageHandler(
@@ -582,7 +705,7 @@ class Bot(object):
             },
             fallbacks=[CommandHandler('cancel', self.cancel)],
         )
-        dispatcher.add_handler(conv_handler)
+        dispatcher.add_handler(helper_conv_handler)
 
         self.log.info("Starting polling")
         updater.start_polling()
