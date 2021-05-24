@@ -1,6 +1,38 @@
-#### Telegram bot which allows you to subscribe to reddit channels you like and get daily updates (actually whatever time range you want)
+# Telegag - telegram bot with Reddit channels subscriptions.
 
-!Attention: Development still in progress
+## Usage
+
+What it can:
+1. Show you posts from the particular channel immediately
+2. Create a subscription to the channel manually
+3. Create a subscription to the channel using helper 
+4. Create a subscription to the channel from the top channels list.
+
+#### To show the menu
+```
+/start
+```
+
+#### To show posts:
+```
+/show aww 3
+```
+Will show you 3 posts from the aww Reddit channel
+
+#### To subscribe manually
+```
+/sub aww 1 3
+```
+Will subscribe you to the aww Subreddit showing 3 posts every 1 hour
+
+#### To use helper
+Just tap the button in the menu and answer some questions
+
+#### To use top channels helper
+Just tap the button in the menu and answer some questions
+
+
+## For developers
 
 ### Installation
 
@@ -49,7 +81,7 @@ To run unit tests just execute:
 ```
 pytest --cov=app tests/
 ```
-It will run all tests in tests directory. To generate a html report (it will be in `./htmlcov/index.html`), run:
+It will run all tests in the tests directory. To generate an html report (it will be in `./htmlcov/index.html`), run:
 ```
 pytest --cov=app --cov-report html tests/
 ```

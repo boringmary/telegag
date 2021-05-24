@@ -62,7 +62,7 @@ class Bot(object):
     help_command_md: str = "/*_{command}_* \- {description}"
 
     commands_md: Dict = {
-        "help": "To show the menu use /help",
+        "start": "To show the menu",
         "show": "To show latest n posts for a channel use `/show aww 3`, it will show 3 latest @aww posts",
         "sub": "To subscribe to the channel use `/sub aww 0.5 1`, it will subscribe you to @aww, showing 1 post every 30 minutes",
     }
@@ -616,7 +616,7 @@ class Bot(object):
             update,
             context,
             context.user_data['channel'],
-            int(context.user_data['limit'] * 60),
+            int(context.user_data['limit'] * 60 * 60),
             int(context.user_data['timerange'])
         )
 
@@ -651,8 +651,7 @@ class Bot(object):
         dispatcher = updater.dispatcher
 
         self.log.info("Registering main handlers")
-        dispatcher.add_handler(CommandHandler("menu", self.get_main_menu))
-        dispatcher.add_handler(CommandHandler("help", self.show_help))
+        dispatcher.add_handler(CommandHandler("start", self.show_help))
         dispatcher.add_handler(CommandHandler("sub", self.subscribe_on_reddit))
         dispatcher.add_handler(CommandHandler("show", self.show_posts))
 
